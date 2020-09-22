@@ -3,8 +3,11 @@ import httpx
 from bs4 import BeautifulSoup
 import asyncio
 
-sema = asyncio.BoundedSemaphore(200)
+sem = asyncio.BoundedSemaphore(500)
+
+
 class Racer:
+
     def __init__(self,start,end,stop_rule):
 
         # set initial
@@ -15,43 +18,44 @@ class Racer:
 
         self.stop_rule = True
 
-
         #start_state
         self.point_list = []
         self.graph = {}
-        self.epohs = {0:0}
-
+        self.epohs = {0:0} # contain epochs and start index of epochs
 
 
     def search_from_start_to_end(self):
+        """
+        Function start epoch from first url and search via all directions
+        1 processed all available and not visited urls its one epoch
+        """
 
-
-        # from start to
         epoch = 0
         points = [self.start_url]
-
-        #[self.graph.append({i:None}) for i in points]
-
         results = []
-
         [self.point_list.append(i) for i in points]
 
         while self.end_url not in results:
 
             print("Epoh", epoch)
             loop = asyncio.new_event_loop()
+
+            # start loop via available new urls
             results = loop.run_until_complete(self.next_epoh(range(self.epohs[epoch],len(self.point_list))))
 
             for url, urls in results:
+
+                # add knowledge about new node
                 self.graph[url] = []
 
                 urls = set(urls)
-                for child_url in urls:
 
+                for child_url in urls:
                     # if protocol no supplied
                     if not 'https://' in child_url:
-                        child_url = ''.join(('https://en.wikipedia.org',child_url))
+                        child_url = ''.join(('https://en.wikipedia.org',child_url)) # another subdomains have full url
 
+                    # add new url to list of all urls and to parent node
                     if child_url not in self.point_list:
                         self.point_list.append(child_url)
                         self.graph[url].append(len(self.point_list) - 1)
@@ -71,6 +75,17 @@ class Racer:
 
 
     def deep_search(self, visited, graph, node):
+        """
+
+        :param visited:
+        :param graph:
+        :param node:
+        :return: list of urls
+
+        deep graph search
+
+        """
+
         if node not in visited:
             print(node)
             visited.add(node)
@@ -89,6 +104,12 @@ class Racer:
 
     async def next_epoh(self,ids_of_urls):
 
+        """
+        Processing new urls
+        :param ids_of_urls:
+        :return:
+        """
+
         sem = asyncio.Semaphore(500)
         timeout = httpx.Timeout(10.0, connect=5)
         limits = httpx.Limits(max_keepalive=1000, max_connections=100)
@@ -102,10 +123,24 @@ class Racer:
         return response_list
 
     async def bound_fetch(self, sem, session, id_of_url):
+        """
+        limit our workers
+        :param sem:
+        :param session:
+        :param id_of_url:
+        :return:
+        """
         async with sem:
             return await self.fetch(session, id_of_url)
 
     async def fetch(self,session,id_of_url):
+
+        """
+        Go to article page and upload all links except functional and red links type
+        :param session:
+        :param id_of_url:
+        :return:
+        """
 
         url = self.point_list[id_of_url]
         print(url)
@@ -135,12 +170,24 @@ class Racer:
 
 
     def search_one_to_many(self):
+        """
+        List realization
+        :return:
+        """
         pass
 
     def search_route_via_similar_signature(self):
+        """
+        Need add read country and anothre fields
+        :return:
+        """
         pass
 
     def languege_level(self):
+        """
+        Search in another launges zone
+        :return:
+        """
         pass
 
 
